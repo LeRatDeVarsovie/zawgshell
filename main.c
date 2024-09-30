@@ -3,8 +3,8 @@
 # include <stdbool.h>
 # include <string.h>
 # include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
+# include <sys/wait.h>
+# include <sys/types.h>
 
 static const char yellow[] = "\033[33m";
 static char end[] = "\033[0m";
@@ -21,13 +21,85 @@ char** zsh_split_line(char* line);
 
 int zsh_launch(char** args);
 
+int zsh_cd(char** args);
 
+int zsh_help(char** args);
+
+int zsh_exit(char** args);
+
+int zsh_num_builtins(void);
+
+int zsh_execute(char** args);
+
+
+char* builtin_str[] = {
+    "cd",
+    "zawg-help",
+    "exit"
+};
+
+int (*builtin_func[]) (char **) = {
+    &zsh_cd,
+    &zsh_help,
+    &zsh_exit
+};
+
+ 
 int main() {
     zawgsh_loop();
-
     return 0;
 }
 
+
+int zsh_execute(char** args) {
+    int i;
+
+    if (args[0] == NULL) {
+        return 1;
+    }
+
+    for (i = 0; i < zsh_num_builtins(); i++) {
+        if (strcmp(args[0], builtin_str[i]) == 0) {
+            return (*builtin_func[i])(args);
+        }
+    }
+
+    return zsh_launch(args);
+}
+
+int zsh_cd(char** args) {
+    if (args[1] == NULL) {
+        fprintf(stderr, "zawgsh: expected argument to \"cd\"\n");
+    }
+    else {
+        if (chdir(args[1]) != 0) {
+            perror("zawgsh");
+        }
+    }
+    return 1;
+}
+
+int zsh_help(char** args) {
+    int i;
+    printf("%sLou Ollivier-Hostin%s Zawg-Shell\n", yellow, end);
+    printf("Type command names and arguments, and hit enter.\n");
+    printf("The following are built in:\n");
+
+    for (i=0; i < zsh_num_builtins(); i++) {
+        printf(" %s\n", builtin_str[i]);
+    }
+
+    printf("Use the man command for information on other commands.\n");
+    return 1;
+}
+
+int zsh_exit(char** args) {
+    return 0;
+}
+
+int zsh_num_builtins(void) {
+    return sizeof(builtin_str) / sizeof(char *);
+}
 
 void zawgsh_loop(void) {
     char* line;
@@ -38,7 +110,7 @@ void zawgsh_loop(void) {
         printf("%s>%s ", yellow, end);
         line = zsh_read_line();
         args = zsh_split_line(line);
-        // status = zsh_execute(args);
+        status = zsh_execute(args);
 
         free(line);
         free(args);
@@ -81,7 +153,6 @@ char* zsh_read_line(void) {
         }
     }
 }
-
 
 char** zsh_split_line(char* line) {
     int bufsize = ZSH_TOKEN_BUFSIZE;
